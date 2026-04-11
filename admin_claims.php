@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', ['admin',
 }
 
 // Handle Mark as Retrieved
+// Handle Mark as Retrieved
 if (isset($_GET['retrieve']) && isset($_GET['claim_id'])) {
     $claim_id = (int)$_GET['claim_id'];
     $stmt = $pdo->prepare("SELECT item_id FROM claims WHERE claim_id = ?");
@@ -15,8 +16,10 @@ if (isset($_GET['retrieve']) && isset($_GET['claim_id'])) {
     $item_id = $stmt->fetchColumn();
 
     if ($item_id) {
+        // Update claim: set status to 'retrieved' and add current date
         $pdo->prepare("UPDATE claims SET status = 'retrieved', retrieved_date = CURRENT_DATE WHERE claim_id = ?")->execute([$claim_id]);
-        $pdo->prepare("UPDATE lost_items SET status = 'resolved' WHERE id = ?")->execute([$item_id]);
+        // Update lost item status to 'returned' (valid value, not 'resolved')
+        $pdo->prepare("UPDATE lost_items SET status = 'returned' WHERE id = ?")->execute([$item_id]);
         header('Location: admin_claims.php?msg=Item marked as retrieved.');
         exit;
     }
