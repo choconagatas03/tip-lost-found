@@ -1,88 +1,114 @@
 <?php
-include 'includes/header.php';
-include 'db.php';
+session_start();
+require_once 'db.php'; // PDO connection
 
-$sql = "SELECT lost_items.*, m.fullname AS claimer
-        FROM lost_items
-        LEFT JOIN members m ON lost_items.claimed_by = m.id
-        WHERE lost_items.status IN ('claimed','returned')
-        ORDER BY lost_items.claim_date DESC";
-$result = mysqli_query($conn, $sql);
-$count  = $result ? mysqli_num_rows($result) : 0;
+if (!isset($_SESSION['user_id'])) {
+    header("Location: signin.php");
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+
+// Fetch only current user's claims – using lost_items table
+$sql = "SELECT c.*, 
+               li.item_type AS item_name, 
+               li.description, 
+               li.image AS image_path, 
+               li.id AS item_id, 
+               li.status AS item_status
+        FROM claims c
+        LEFT JOIN lost_items li ON c.item_id = li.id
+        WHERE c.claimant_user_id = :user_id
+        ORDER BY c.claim_date DESC";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute([':user_id' => $user_id]);
+$claims = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+include 'includes/header.php';
 ?>
 
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-  <p style="font-size:14px;color:var(--gray);margin:0;">
-    <strong><?php echo $count; ?></strong> item<?php echo $count !== 1 ? 's' : ''; ?> claimed or returned
-  </p>
+<div class="page-header">
+    <h1><i class="fas fa-clipboard-list"></i> My Claims</h1>
+    <p>Track the status of your item claims</p>
 </div>
 
-<?php if ($count > 0): ?>
-  <div class="gallery">
-    <?php while ($item = mysqli_fetch_assoc($result)):
-      $status_cls = strtolower($item['status']) === 'returned' ? 'badge-returned' : 'badge-claimed';
-    ?>
-      <div class="item-card">
+<?php if (isset($_GET['msg']) && $_GET['msg'] == 'Cancelled'): ?>
+    <div class="alert alert-success">Claim cancelled successfully. The item is now available again.</div>
+<?php endif; ?>
 
-        <?php if ($item['image']): ?>
-          <img class="item-card-img" src="uploads/<?php echo htmlspecialchars($item['image']); ?>" alt="<?php echo htmlspecialchars($item['item_type']); ?>">
-        <?php else: ?>
-          <div class="item-card-img-placeholder">
-            <i class="fas fa-box-open"></i>
-            <span>No Photo</span>
-          </div>
-        <?php endif; ?>
-
-        <div class="item-card-body">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <div class="item-card-id">Item #<?php echo (int)$item['id']; ?></div>
-            <span class="badge <?php echo $status_cls; ?>"><?php echo htmlspecialchars(ucfirst($item['status'])); ?></span>
-          </div>
-
-          <div class="item-card-type"><?php echo htmlspecialchars($item['item_type']); ?></div>
-
-          <?php if (!empty($item['description'])): ?>
-            <div class="item-card-desc">
-              <?php echo htmlspecialchars(mb_strimwidth($item['description'], 0, 90, '…')); ?>
-            </div>
-          <?php endif; ?>
-
-          <?php if (!empty($item['date_lost'])): ?>
-            <div style="font-size:12px;color:var(--gray);display:flex;align-items:center;gap:5px;margin-top:4px;">
-              <i class="fas fa-calendar-days" style="color:var(--gray-light);"></i>
-              Lost: <?php echo date('M j, Y', strtotime($item['date_lost'])); ?>
-            </div>
-          <?php endif; ?>
-
-          <?php if (!empty($item['claim_date'])): ?>
-            <div style="font-size:12px;color:var(--success);display:flex;align-items:center;gap:5px;">
-              <i class="fas fa-check-circle"></i>
-              Claimed: <?php echo date('M j, Y', strtotime($item['claim_date'])); ?>
-            </div>
-          <?php endif; ?>
-
-          <?php if (!empty($item['claimer'])): ?>
-            <div class="item-card-meta" style="margin-top:8px;padding-top:10px;border-top:1px solid var(--border);">
-              <div class="item-card-poster">
-                <div class="item-card-poster-avatar" style="background:var(--success-bg);border-color:#BBF7D0;color:var(--success);">
-                  <?php echo strtoupper(substr($item['claimer'], 0, 1)); ?>
-                </div>
-                <span><?php echo htmlspecialchars($item['claimer']); ?></span>
-              </div>
-            </div>
-          <?php endif; ?>
-
-        </div>
-      </div>
-    <?php endwhile; ?>
-  </div>
-
+<?php if (count($claims) > 0): ?>
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Claim Date</th>
+                    <th>Status</th>
+                    <th>Admin Notes</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($claims as $claim): ?>
+                    <?php
+                    $status = $claim['status'];
+                    $badge_class = '';
+                    $status_text = '';
+                    switch ($status) {
+                        case 'pending':
+                            $badge_class = 'badge-warning';
+                            $status_text = ' Pending ';
+                            break;
+                        case 'approved':
+                            $badge_class = 'badge-success';
+                            $status_text = ' Approved ';
+                            break;
+                        case 'retrieved':
+                            $badge_class = 'badge-info';
+                            $status_text = ' Retrieved';
+                            break;
+                        case 'rejected':
+                            $badge_class = 'badge-danger';
+                            $status_text = ' Rejected';
+                            break;
+                        default:
+                            $badge_class = 'badge-secondary';
+                            $status_text = ucfirst($status);
+                    }
+                    ?>
+                    <tr>
+                        <td>
+                            <?php if (!empty($claim['image_path'])): ?>
+                                <img src="uploads/<?php echo htmlspecialchars($claim['image_path']); ?>" style="width:40px; height:40px; object-fit:cover; border-radius:4px; margin-right:10px;">
+                            <?php endif; ?>
+                            <?php echo htmlspecialchars($claim['item_name'] ?? 'Item Deleted'); ?>
+                        </td>
+                        <td><?php echo date('M d, Y', strtotime($claim['claim_date'])); ?></td>
+                        <td><span class="badge <?php echo $badge_class; ?>"><?php echo $status_text; ?></span></td>
+                        <td><?php echo nl2br(htmlspecialchars($claim['admin_notes'] ?? '—')); ?></td>
+                        <td>
+                            <?php if ($status === 'pending' && !empty($claim['item_id'])): ?>
+                                <a href="cancel_claim.php?claim_id=<?php echo $claim['claim_id']; ?>&item_id=<?php echo $claim['item_id']; ?>"
+                                   class="btn btn-danger btn-sm"
+                                   onclick="return confirm('Cancel this claim? The item will become available again.')">
+                                    <i class="fas fa-times"></i> Cancel Claim
+                                </a>
+                            <?php else: ?>
+                                —
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 <?php else: ?>
-  <div class="empty-state" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);">
-    <div class="empty-state-icon"><i class="fas fa-box-open"></i></div>
-    <h4>No claimed items yet</h4>
-    <p>Items that have been successfully claimed or returned will appear here.</p>
-  </div>
+    <div class="empty-state">
+        <div class="empty-state-icon"><i class="fas fa-clipboard-list"></i></div>
+        <h4>No claims found</h4>
+        <p>You haven't claimed any items yet. Visit <a href="index.php">Lost Items</a> to claim.</p>
+    </div>
 <?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

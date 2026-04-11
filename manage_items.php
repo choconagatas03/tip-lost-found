@@ -1,31 +1,34 @@
 <?php
+// manage_items.php - PostgreSQL version
 include 'includes/header.php';
-include 'db.php';
+require_once 'db.php';  // Should return a PDO instance
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
-  header("Location: signin.php");
-  exit;
+    header("Location: signin.php");
+    exit;
 }
 
 $msg = $_GET['msg'] ?? '';
 
 $edit_item = null;
 if (isset($_GET['edit'])) {
-  $id = (int)$_GET['edit'];
-  $stmt = mysqli_prepare($conn, "SELECT * FROM lost_items WHERE id=?");
-  mysqli_stmt_bind_param($stmt, "i", $id);
-  mysqli_stmt_execute($stmt);
-  $res = mysqli_stmt_get_result($stmt);
-  $edit_item = mysqli_fetch_assoc($res);
-  mysqli_stmt_close($stmt);
+    $id = (int)$_GET['edit'];
+    // PDO prepared statement
+    $stmt = $pdo->prepare("SELECT * FROM lost_items WHERE id = ?");
+    $stmt->execute([$id]);
+    $edit_item = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-$sql = "SELECT lost_items.*, m1.fullname AS posted_by_name, m2.fullname AS claimer_name
-        FROM lost_items
-        LEFT JOIN members m1 ON lost_items.user_id = m1.id
-        LEFT JOIN members m2 ON lost_items.claimed_by = m2.id
-        ORDER BY lost_items.created_at DESC";
-$result = mysqli_query($conn, $sql);
+// Query with proper PostgreSQL joins (using users table)
+$sql = "SELECT li.*, 
+               u1.full_name AS posted_by_name, 
+               u2.full_name AS claimer_name
+        FROM lost_items li
+        LEFT JOIN users u1 ON li.user_id = u1.user_id
+        LEFT JOIN users u2 ON li.claimed_by = u2.user_id
+        ORDER BY li.created_at DESC";
+$stmt = $pdo->query($sql);
+$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <?php if ($msg): ?>
@@ -49,7 +52,6 @@ $result = mysqli_query($conn, $sql);
     <?php endif; ?>
 
     <div class="form-grid">
-
       <div class="form-group full-width">
         <label>Description</label>
         <textarea name="description" rows="3" placeholder="Describe the item in detail..." required><?php echo htmlspecialchars($edit_item['description'] ?? ''); ?></textarea>
@@ -86,8 +88,7 @@ $result = mysqli_query($conn, $sql);
           </div>
         <?php endif; ?>
       </div>
-
-    </div><!-- /form-grid -->
+    </div>
 
     <div style="display:flex;gap:10px;margin-top:8px;">
       <button type="submit" class="btn-primary">
@@ -98,7 +99,6 @@ $result = mysqli_query($conn, $sql);
         <a href="manage_items.php" class="btn btn-secondary"><i class="fas fa-xmark"></i> Cancel</a>
       <?php endif; ?>
     </div>
-
   </form>
 </div>
 
@@ -106,10 +106,10 @@ $result = mysqli_query($conn, $sql);
 <div class="card">
   <div class="card-header">
     <h3><i class="fas fa-clipboard-list" style="color:var(--tip-gold-deep);margin-right:8px;"></i>All Items</h3>
-    <span style="font-size:13px;color:var(--gray);"><?php echo $result ? mysqli_num_rows($result) : 0; ?> records</span>
+    <span style="font-size:13px;color:var(--gray);"><?php echo count($results); ?> records</span>
   </div>
 
-  <?php if ($result && mysqli_num_rows($result) > 0): ?>
+  <?php if (count($results) > 0): ?>
     <div class="table-wrapper" style="border:none;border-radius:0;box-shadow:none;">
       <table>
         <thead>
@@ -125,7 +125,7 @@ $result = mysqli_query($conn, $sql);
           </tr>
         </thead>
         <tbody>
-          <?php while ($row = mysqli_fetch_assoc($result)): ?>
+          <?php foreach ($results as $row): ?>
             <tr>
               <td style="font-weight:700;color:var(--gray-light);font-size:12px;">#<?php echo (int)$row['id']; ?></td>
               <td>
@@ -170,7 +170,7 @@ $result = mysqli_query($conn, $sql);
                 </div>
               </td>
             </tr>
-          <?php endwhile; ?>
+          <?php endforeach; ?>
         </tbody>
       </table>
     </div>

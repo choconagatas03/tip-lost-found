@@ -22,6 +22,8 @@ $page_titles = [
   'manage_items.php'    => ['Manage Items', 'Add, edit, or remove lost item records'],
   'manage_users.php'    => ['Manage Users', 'View and manage registered members'],
   'reports.php'         => ['Reports & Export', 'Generate and download reports'],
+  'admin_claims.php'    => ['Manage Claims', 'Review and process item claims'], // ADDED THIS
+  'approve_claim.php'   => ['Approve Claim', 'Confirm ownership and approve claim'], // ADDED THIS
 ];
 
 $page_title   = $page_titles[$current_page][0] ?? 'Lost & Found';
@@ -41,7 +43,6 @@ $page_subtitle = $page_titles[$current_page][1] ?? 'TIP Manila Lost & Found Syst
 <body>
 
   <?php if ($current_page === 'signin.php' || $current_page === 'register.php'): ?>
-    <!-- Auth layout — no sidebar -->
     <div class="auth-layout">
       <nav class="top-navbar">
         <a class="navbar-brand" href="signin.php" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
@@ -56,13 +57,10 @@ $page_subtitle = $page_titles[$current_page][1] ?? 'TIP Manila Lost & Found Syst
       <div class="auth-body">
 
       <?php else: ?>
-        <!-- App layout — with sidebar -->
         <div class="student-layout">
 
-          <!-- SIDEBAR -->
           <aside id="sidebar" class="sidebar collapsed">
 
-            <!-- Brand -->
             <div class="sidebar-brand">
               <div class="sidebar-brand-icon"><i class="fas fa-thumbtack"></i></div>
               <div class="sidebar-brand-text">
@@ -71,7 +69,6 @@ $page_subtitle = $page_titles[$current_page][1] ?? 'TIP Manila Lost & Found Syst
               </div>
             </div>
 
-            <!-- Navigation -->
             <div class="sidebar-section">
 
               <?php if ($user_role === 'student'): ?>
@@ -97,7 +94,7 @@ $page_subtitle = $page_titles[$current_page][1] ?? 'TIP Manila Lost & Found Syst
                   </li>
                 </ul>
 
-              <?php elseif ($user_role === 'admin'): ?>
+              <?php elseif ($user_role === 'admin' || $user_role === 'staff'): ?>
                 <div class="sidebar-section-label">Overview</div>
                 <ul>
                   <li>
@@ -113,6 +110,12 @@ $page_subtitle = $page_titles[$current_page][1] ?? 'TIP Manila Lost & Found Syst
                     <a href="manage_items.php" <?php echo $current_page === 'manage_items.php' ? 'class="active"' : ''; ?>>
                       <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                       <span class="label">Manage Items</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="admin_claims.php" <?php echo ($current_page === 'admin_claims.php' || $current_page === 'approve_claim.php') ? 'class="active"' : ''; ?>>
+                      <span class="nav-icon"><i class="fas fa-hand-holding-heart"></i></span>
+                      <span class="label">Manage Claims</span>
                     </a>
                   </li>
                   <li>
@@ -139,22 +142,15 @@ $page_subtitle = $page_titles[$current_page][1] ?? 'TIP Manila Lost & Found Syst
                 </li>
               </ul>
 
-            </div><!-- /sidebar-section -->
-
-            <!-- Footer toggle -->
-            <div class="sidebar-footer">
+            </div><div class="sidebar-footer">
               <button id="hamburger" class="hamburger" aria-label="Toggle sidebar">
                 <i class="fas fa-bars hamburger-icon"></i>
                 <span class="hamburger-label">Collapse</span>
               </button>
             </div>
 
-          </aside><!-- /sidebar -->
+          </aside><div class="content collapsed" id="main-content">
 
-          <!-- MAIN CONTENT -->
-          <div class="content collapsed" id="main-content">
-
-            <!-- Top bar -->
             <header class="top-bar">
               <div class="top-bar-left">
                 <h2><?php echo htmlspecialchars($page_title); ?></h2>
@@ -168,7 +164,6 @@ $page_subtitle = $page_titles[$current_page][1] ?? 'TIP Manila Lost & Found Syst
               </div>
             </header>
 
-            <!-- Page content -->
             <div class="page-content">
               <div class="container">
 

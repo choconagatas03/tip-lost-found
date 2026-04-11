@@ -45,52 +45,31 @@ if (!preg_match('/^(?=.*[A-Za-z])(?=.*\d)/', $password)) {
 if ($password !== $confirm_password) {
     $errors[] = "Passwords do not match.";
 }
+// ... keep validations the same ...
 
 /* Check email uniqueness */
-$sql_email = "SELECT id FROM members WHERE email = ?";
-$stmt = mysqli_prepare($conn, $sql_email);
-mysqli_stmt_bind_param($stmt, "s", $email);
-mysqli_stmt_execute($stmt);
-mysqli_stmt_store_result($stmt);
-
-if (mysqli_stmt_num_rows($stmt) > 0) {
+$stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = :email");
+$stmt->execute(['email' => $email]);
+if ($stmt->fetch()) {
     $errors[] = "Email is already registered.";
-}
-mysqli_stmt_close($stmt);
-
-/* Check phone uniqueness */
-$sql_phone = "SELECT id FROM members WHERE phone = ?";
-$stmt = mysqli_prepare($conn, $sql_phone);
-mysqli_stmt_bind_param($stmt, "s", $phone);
-mysqli_stmt_execute($stmt);
-mysqli_stmt_store_result($stmt);
-
-if (mysqli_stmt_num_rows($stmt) > 0) {
-    $errors[] = "Phone number is already registered.";
-}
-mysqli_stmt_close($stmt);
-
-/* If errors, redirect back with session */
-if ($errors) {
-    $_SESSION['register_errors'] = $errors;
-    header("Location: register.php");
-    exit;
 }
 
 /* Insert user */
-$hashed_password = password_hash($password, PASSWORD_DEFAULT);
+if (empty($errors)) {
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+    $sql = "INSERT INTO users (full_name, email, phone_number, password, gender, role)
+            VALUES (:name, :email, :phone, :pass, :gender, 'student')";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        'name'   => $fullname,
+        'email'  => $email,
+        'phone'  => $phone,
+        'pass'   => $hashed_password,
+        'gender' => $gender
+    ]);
 
-$sql = "INSERT INTO members (fullname, email, phone, password, gender, role)
-        VALUES (?, ?, ?, ?, ?, 'student')";
-
-$stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, "sssss", $fullname, $email, $phone, $hashed_password, $gender);
-mysqli_stmt_execute($stmt);
-mysqli_stmt_close($stmt);
-
-unset($_SESSION['register_old_data']);
-
-/* Redirect to signin with success message */
-header("Location: signin.php?registered=1");
-exit;
+    header("Location: signin.php?registered=1");
+    exit;
+}
 ?>

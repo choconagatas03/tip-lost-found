@@ -1,31 +1,36 @@
 <?php
+session_start();
+include 'db.php'; // Using your PDO connection
 include 'includes/header.php';
-include 'db.php';
 
+// Security Check: Only let admins stay here
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
-  header("Location: signin.php");
-  exit;
+    header("Location: signin.php");
+    exit;
 }
 
-$count_items   = (int)mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM lost_items"))['total'];
-$count_lost    = (int)mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM lost_items WHERE status='lost'"))['total'];
-$count_claimed = (int)mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM lost_items WHERE status IN ('claimed','returned')"))['total'];
-$count_users   = (int)mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM members"))['total'];
+try {
+    // 1. Fetch Stats using PDO/PostgreSQL syntax
+    $count_items   = (int)$pdo->query("SELECT COUNT(*) FROM lost_items")->fetchColumn();
+    $count_lost    = (int)$pdo->query("SELECT COUNT(*) FROM lost_items WHERE status='lost'")->fetchColumn();
+    $count_claimed = (int)$pdo->query("SELECT COUNT(*) FROM lost_items WHERE status IN ('claimed','returned')")->fetchColumn();
+    $count_users   = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 
-// Recent items
-$recent_result = mysqli_query($conn, "
-    SELECT lost_items.id, lost_items.item_type, lost_items.status, lost_items.created_at,
-           members.fullname AS posted_by
-    FROM lost_items
-    LEFT JOIN members ON lost_items.user_id = members.id
-    ORDER BY lost_items.created_at DESC
-    LIMIT 8
-");
+    // 2. Fetch Recent Items (Joining with your 'users' table)
+    $stmt = $pdo->query("
+        SELECT li.id, li.item_type, li.status, li.created_at, u.full_name AS posted_by
+        FROM lost_items li
+        LEFT JOIN users u ON li.user_id = u.user_id
+        ORDER BY li.created_at DESC
+        LIMIT 8
+    ");
+    $recent_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    die("Database error: " . $e->getMessage());
+}
 ?>
 
-<!-- Stat Cards -->
 <div class="stat-grid">
-
   <div class="stat-card">
     <div class="stat-icon yellow"><i class="fas fa-boxes-stacked"></i></div>
     <div class="stat-info">
@@ -57,10 +62,8 @@ $recent_result = mysqli_query($conn, "
       <div class="stat-label">Registered Users</div>
     </div>
   </div>
-
 </div>
 
-<!-- Quick Actions -->
 <div class="quick-actions" style="margin-bottom:28px;">
   <a href="manage_items.php" class="quick-action-card">
     <div class="qai"><i class="fas fa-plus"></i></div>
@@ -70,21 +73,16 @@ $recent_result = mysqli_query($conn, "
     <div class="qai"><i class="fas fa-users-cog"></i></div>
     <span>Manage Users</span>
   </a>
-  <a href="reports.php" class="quick-action-card">
-    <div class="qai"><i class="fas fa-file-export"></i></div>
-    <span>Generate Report</span>
-  </a>
 </div>
 
-<!-- Recent Activity -->
 <div class="card">
   <div class="card-header">
-    <h3><i class="fas fa-clock" style="color:var(--tip-gold-deep);margin-right:8px;"></i>Recent Items</h3>
+    <h3><i class="fas fa-clock" style="color:#d4af37;margin-right:8px;"></i>Recent Items</h3>
     <a href="manage_items.php" class="btn btn-secondary btn-sm">View All</a>
   </div>
 
-  <?php if ($recent_result && mysqli_num_rows($recent_result) > 0): ?>
-    <div class="table-wrapper" style="border:none;border-radius:0;box-shadow:none;">
+  <?php if (count($recent_items) > 0): ?>
+    <div class="table-wrapper">
       <table>
         <thead>
           <tr>
@@ -97,42 +95,26 @@ $recent_result = mysqli_query($conn, "
           </tr>
         </thead>
         <tbody>
-          <?php while ($row = mysqli_fetch_assoc($recent_result)): ?>
+          <?php foreach ($recent_items as $row): ?>
             <tr>
-              <td style="font-weight:700;color:var(--gray);">#<?php echo (int)$row['id']; ?></td>
-              <td style="font-weight:600;"><?php echo htmlspecialchars($row['item_type']); ?></td>
+              <td>#<?php echo (int)$row['id']; ?></td>
+              <td><?php echo htmlspecialchars($row['item_type']); ?></td>
               <td>
-                <?php
-                $s = strtolower($row['status']);
-                $cls = match ($s) {
-                  'lost' => 'badge-lost',
-                  'claimed' => 'badge-claimed',
-                  'returned' => 'badge-returned',
-                  default => 'badge-student'
-                };
-                ?>
-                <span class="badge <?php echo $cls; ?>"><?php echo htmlspecialchars(ucfirst($row['status'])); ?></span>
+                <span class="badge badge-<?php echo strtolower($row['status']); ?>">
+                    <?php echo htmlspecialchars(ucfirst($row['status'])); ?>
+                </span>
               </td>
               <td><?php echo htmlspecialchars($row['posted_by'] ?? '—'); ?></td>
-              <td style="color:var(--gray);font-size:13px;">
-                <?php echo date('M j, Y', strtotime($row['created_at'])); ?>
-              </td>
-              <td>
-                <a href="manage_items.php?edit=<?php echo (int)$row['id']; ?>" class="btn btn-secondary btn-sm">
-                  <i class="fas fa-pencil"></i> Edit
-                </a>
-              </td>
+              <td><?php echo date('M j, Y', strtotime($row['created_at'])); ?></td>
+              <td><a href="manage_items.php?edit=<?php echo $row['id']; ?>" class="btn btn-sm">Edit</a></td>
             </tr>
-          <?php endwhile; ?>
+          <?php endforeach; ?>
         </tbody>
       </table>
     </div>
   <?php else: ?>
-    <div class="empty-state">
-      <div class="empty-state-icon"><i class="fas fa-box-open"></i></div>
-      <h4>No items yet</h4>
-      <p>Start by adding a lost item to the system.</p>
-      <a href="manage_items.php" class="btn" style="margin-top:4px;"><i class="fas fa-plus"></i> Add Item</a>
+    <div class="empty-state" style="padding: 20px; text-align: center;">
+      <p>No recent activity found.</p>
     </div>
   <?php endif; ?>
 </div>

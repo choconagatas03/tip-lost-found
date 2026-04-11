@@ -14,9 +14,31 @@ unset($_SESSION['signin_error'], $_SESSION['signin_old_email']);
 include 'includes/header.php';
 ?>
 
+<style>
+    .password-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .password-wrapper input {
+        width: 100%;
+        padding-right: 45px !important; /* Make room for the eye icon */
+    }
+    .toggle-password {
+        position: absolute;
+        right: 15px;
+        cursor: pointer;
+        color: #888;
+        transition: color 0.2s;
+        z-index: 10;
+    }
+    .toggle-password:hover {
+        color: #d4af37; /* Matches TIP theme color */
+    }
+</style>
+
 <div class="auth-card">
 
-    <!-- Left panel -->
     <div class="auth-panel">
         <div class="auth-panel-logo">
             <div class="auth-panel-logo-icon"><i class="fas fa-thumbtack"></i></div>
@@ -36,7 +58,6 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <!-- Right form area -->
     <div class="auth-form-area">
         <h3>Welcome back</h3>
         <p>Sign in to access the Lost &amp; Found portal.</p>
@@ -71,14 +92,17 @@ include 'includes/header.php';
 
             <div class="form-group">
                 <label for="password">Password</label>
-                <input
-                    id="password"
-                    type="password"
-                    name="password"
-                    placeholder="Enter your password"
-                    minlength="6"
-                    autocomplete="current-password"
-                    required>
+                <div class="password-wrapper">
+                    <input
+                        id="password"
+                        type="password"
+                        name="password"
+                        placeholder="Enter your password"
+                        minlength="6"
+                        autocomplete="current-password"
+                        required>
+                    <i class="fas fa-eye toggle-password" id="togglePasswordIcon"></i>
+                </div>
             </div>
 
             <button type="submit" class="auth-submit-btn">
@@ -87,10 +111,24 @@ include 'includes/header.php';
             </button>
 
         </form>
-
         <p class="auth-footer-text">Don't have an account? <a href="register.php">Create one here</a></p>
     </div>
 
 </div>
+
+<script>
+    const passwordField = document.querySelector('#password');
+    const toggleIcon = document.querySelector('#togglePasswordIcon');
+
+    toggleIcon.addEventListener('click', function () {
+        // Toggle the type attribute
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordField.setAttribute('type', type);
+        
+        // Toggle the icon class
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+    });
+</script>
 
 <?php include 'includes/footer.php'; ?>
