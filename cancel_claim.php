@@ -14,7 +14,7 @@ $user_id  = $_SESSION['user_id'];
 try {
     // 1. Check for the claim using BOTH possible column names to be safe
     // We check if it's 'pending' because you can't cancel an already approved item.
-    $stmt = $pdo->prepare("SELECT * FROM claims WHERE claim_id = ? AND (user_id = ? OR claimant_user_id = ?) AND status = 'pending'");
+    $stmt = $pdo->prepare("SELECT * FROM claims WHERE claim_id = ? AND claimant_user_id = ? AND status = 'pending'");
     $stmt->execute([$claim_id, $user_id, $user_id]);
     $claim = $stmt->fetch();
 
