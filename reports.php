@@ -117,15 +117,8 @@ include 'includes/header.php';
     </form>
 </div>
 
-<!-- Export Buttons -->
+<!-- Export Buttons (PDF removed) -->
 <div class="export-bar">
-    <form action="export_pdf.php" method="POST" target="_blank" style="display:inline;">
-        <input type="hidden" name="status" value="<?php echo htmlspecialchars($status_filter); ?>">
-        <input type="hidden" name="item_type" value="<?php echo htmlspecialchars($item_type_filter); ?>">
-        <input type="hidden" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>">
-        <input type="hidden" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>">
-        <button type="submit" class="btn btn-danger"><i class="fas fa-file-pdf"></i> Export PDF</button>
-    </form>
     <button onclick="copyToClipboard()" class="btn btn-info"><i class="fas fa-clipboard"></i> Copy to Clipboard</button>
     <button onclick="window.print()" class="btn btn-success"><i class="fas fa-print"></i> Print</button>
 </div>
