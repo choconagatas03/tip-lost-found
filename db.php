@@ -1,22 +1,25 @@
 <?php
-// On Railway, these variables are injected automatically via the Environment
-$host = getenv('PGHOST') ?: 'postgres.railway.internal';
-$port = getenv('PGPORT') ?: '5432';
-$db   = getenv('PGDATABASE') ?: 'railway';
-$user = getenv('PGUSER') ?: 'postgres';
-$pass = getenv('PGPASSWORD') ?: 'ckUGRXeXkugIZOfsNqTWLfucyoqWrtGL'; 
+// Railway provides these. If they are empty, getenv() returns false.
+$host = getenv('PGHOST');
+$port = getenv('PGPORT');
+$db   = getenv('PGDATABASE');
+$user = getenv('PGUSER');
+$pass = getenv('PGPASSWORD'); 
+
+// Check if variables are actually loaded to avoid the "startup packet" error
+if (!$host || !$user || !$pass) {
+    die("Database environment variables are missing in Railway!");
+}
 
 try {
-    // Note the change to 'pgsql' for Railway's database
-    $dsn = "pgsql:host=$host;port=$port;dbname=$db";
+    // Added sslmode=require which is often mandatory for cloud Postgres
+    $dsn = "pgsql:host=$host;port=$port;dbname=$db;sslmode=require";
     
     $pdo = new PDO($dsn, $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 } catch (PDOException $e) {
-    // We log the error internally but show a generic message to users for security
     error_log("Connection failed: " . $e->getMessage());
-    die("Could not connect to the database. Please try again later.");
+    die("Could not connect to the database.");
 }
-?>

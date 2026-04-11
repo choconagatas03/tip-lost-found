@@ -1,18 +1,12 @@
 <?php
 session_start();
 include 'includes/header.php';
-require_once 'db.php'; // Ensure this returns a PDO object named $pdo
-
-// Enable error reporting temporarily
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+require_once 'db.php'; 
 
 $type = trim($_GET['item_type'] ?? '');
 $date_lost = trim($_GET['date_lost'] ?? '');
 $q = trim($_GET['q'] ?? '');
 
-// 1. Initialize logic for PostgreSQL
 $where_clauses = ["li.status ILIKE 'lost'"]; 
 $params = [];
 
@@ -29,10 +23,8 @@ if ($q !== '') {
     $params[':q'] = "%$q%";
 }
 
-// Construct the final WHERE string
 $where_sql = "WHERE " . implode(' AND ', $where_clauses);
 
-// 2. Corrected Query
 $sql = "SELECT li.*, u.full_name AS posted_by
         FROM lost_items li
         LEFT JOIN users u ON li.user_id = u.user_id
@@ -56,11 +48,11 @@ $is_staff_admin = ($user_role === 'admin' || $user_role === 'staff');
     <form method="GET" style="display:contents;">
         <div class="filter-group" style="flex:2;min-width:180px;">
             <label>Search</label>
-            <input type="text" name="q" value="<?php echo htmlspecialchars($q); ?>" placeholder="Keyword — description or type">
+            <input type="text" name="q" value="<?php echo htmlspecialchars($q); ?>" placeholder="Keyword...">
         </div>
         <div class="filter-group">
             <label>Item Type</label>
-            <input type="text" name="item_type" value="<?php echo htmlspecialchars($type); ?>" placeholder="e.g. Phone, Wallet">
+            <input type="text" name="item_type" value="<?php echo htmlspecialchars($type); ?>" placeholder="e.g. Phone">
         </div>
         <div class="filter-group">
             <label>Date Lost</label>
@@ -68,81 +60,44 @@ $is_staff_admin = ($user_role === 'admin' || $user_role === 'staff');
         </div>
         <div class="filter-actions">
             <button type="submit"><i class="fas fa-search"></i> Search</button>
-            <a href="index.php" class="btn btn-secondary"><i class="fas fa-xmark"></i> Clear</a>
+            <a href="index.php" class="btn btn-secondary">Clear</a>
         </div>
     </form>
 </div>
 
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-    <p style="font-size:14px;color:var(--gray);margin:0;">
-        <?php if ($count > 0): ?>
-            Showing <strong><?php echo $count; ?></strong> lost item<?php echo $count !== 1 ? 's' : ''; ?>
-        <?php else: ?>
-            No items found
-        <?php endif; ?>
-    </p>
-</div>
+<div class="gallery">
+    <?php foreach ($items as $item):
+        $posted_name = $item['posted_by'] ?? 'Unknown User';
+        $initial = strtoupper(substr($posted_name, 0, 1));
+        $item_id = $item['item_id'] ?? $item['id'] ?? 0;
+    ?>
+        <div class="item-card">
+            <?php if (!empty($item['image'])): ?>
+                <img class="item-card-img" src="uploads/<?php echo htmlspecialchars($item['image']); ?>">
+            <?php else: ?>
+                <div class="item-card-img-placeholder"><i class="fas fa-image"></i></div>
+            <?php endif; ?>
 
-<?php if ($count > 0): ?>
-    <div class="gallery">
-        <?php foreach ($items as $item):
-            $posted_name = $item['posted_by'] ?? 'Unknown User';
-            $initial = strtoupper(substr($posted_name, 0, 1));
-            // Case-insensitive status check
-            $status_check = strtolower($item['status'] ?? '');
-        ?>
-            <div class="item-card">
-                <?php if (!empty($item['image'])): ?>
-                    <img class="item-card-img" src="uploads/<?php echo htmlspecialchars($item['image']); ?>" alt="<?php echo htmlspecialchars($item['item_type'] ?? 'Item'); ?>">
-                <?php else: ?>
-                    <div class="item-card-img-placeholder">
-                        <i class="fas fa-image"></i>
-                        <span>No Photo</span>
+            <div class="item-card-body">
+                <div class="item-card-id">Item #<?php echo (int)$item_id; ?></div>
+                <div class="item-card-type"><?php echo htmlspecialchars($item['item_type']); ?></div>
+                
+                <div class="item-card-meta">
+                    <div class="item-card-poster">
+                        <div class="item-card-poster-avatar"><?php echo $initial; ?></div>
+                        <span><?php echo htmlspecialchars($posted_name); ?></span>
+                    </div>
+                </div>
+
+                <?php if (isset($_SESSION['user_id'])): ?>
+                    <div style="margin-top:12px;">
+                        <a href="claim_item.php?item_id=<?php echo $item_id; ?>" class="btn btn-primary btn-sm" style="width:100%; display:block; text-align:center;">
+                            Claim This Item
+                        </a>
                     </div>
                 <?php endif; ?>
-
-                <div class="item-card-body">
-                    <div class="item-card-id">Item #<?php echo (int)($item['id'] ?? $item['item_id'] ?? 0); ?></div>
-                    <div class="item-card-type"><?php echo htmlspecialchars($item['item_type'] ?? 'Unknown'); ?></div>
-
-                    <?php if ($is_staff_admin && !empty($item['description'])): ?>
-                        <div class="item-card-desc">
-                            <?php echo htmlspecialchars(mb_strimwidth($item['description'] ?? '', 0, 90, '…')); ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php if ($is_staff_admin && !empty($item['date_lost'])): ?>
-                        <div style="font-size:12px;color:var(--gray);display:flex;align-items:center;gap:5px;margin-top:4px;">
-                            <i class="fas fa-calendar-days" style="color:var(--tip-gold-deep);"></i>
-                            Lost on <?php echo date('M j, Y', strtotime($item['date_lost'])); ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="item-card-meta">
-                        <div class="item-card-poster">
-                            <div class="item-card-poster-avatar"><?php echo $initial; ?></div>
-                            <span><?php echo htmlspecialchars($posted_name); ?></span>
-                        </div>
-                        <span class="badge badge-lost">Lost</span>
-                    </div>
-
-                    <?php if (isset($_SESSION['user_id']) && $status_check === 'lost'): ?>
-                        <div style="margin-top:12px;">
-                            <a href="claim_item.php?item_id=<?php echo $item['id'] ?? $item['item_id'] ?? 0; ?>" class="btn btn-primary btn-sm" style="width:100%;">
-                                <i class="fas fa-hand-holding-heart"></i> Claim This Item
-                            </a>
-                        </div>
-                    <?php endif; ?>
-                </div>
             </div>
-        <?php endforeach; ?>
-    </div>
-<?php else: ?>
-    <div class="empty-state">
-        <div class="empty-state-icon"><i class="fas fa-search"></i></div>
-        <h4>No lost items found</h4>
-        <p><?php echo ($q || $type || $date_lost) ? 'Try adjusting your filters or clearing the search.' : 'No lost items have been reported yet.'; ?></p>
-    </div>
-<?php endif; ?>
-
+        </div>
+    <?php endforeach; ?>
+</div>
 <?php include 'includes/footer.php'; ?>
