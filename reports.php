@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'db.php'; // Must return a PDO instance
+require_once 'db.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     header("Location: signin.php");
@@ -13,7 +13,7 @@ $item_type_filter = $_GET['item_type'] ?? '';
 $date_from       = $_GET['date_from'] ?? '';
 $date_to         = $_GET['date_to'] ?? '';
 
-// Build WHERE clause (PostgreSQL with named placeholders)
+// Build WHERE clause
 $where = "WHERE 1=1";
 $params = [];
 
@@ -34,13 +34,15 @@ if ($date_to !== '') {
     $params[':date_to'] = $date_to;
 }
 
-// Main query – lost_items with poster and claimer names
+// Main query – with claim info (only approved/retrieved claims)
 $sql = "SELECT li.*,
                u1.full_name AS posted_by_name,
+               c.claim_date,
                u2.full_name AS claimer_name
         FROM lost_items li
         LEFT JOIN users u1 ON li.user_id = u1.user_id
-        LEFT JOIN users u2 ON li.claimed_by = u2.user_id
+        LEFT JOIN claims c ON li.id = c.item_id AND c.status IN ('approved', 'retrieved')
+        LEFT JOIN users u2 ON c.claimant_user_id = u2.user_id
         $where
         ORDER BY li.created_at DESC";
 
@@ -48,7 +50,7 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Summary stats (efficient counts)
+// Summary stats
 $total_items = $pdo->query("SELECT COUNT(*) FROM lost_items")->fetchColumn();
 $lost_count  = $pdo->query("SELECT COUNT(*) FROM lost_items WHERE status = 'lost'")->fetchColumn();
 $claimed_returned_count = $pdo->query("SELECT COUNT(*) FROM lost_items WHERE status IN ('claimed', 'returned')")->fetchColumn();
@@ -117,7 +119,7 @@ include 'includes/header.php';
     </form>
 </div>
 
-<!-- Export Buttons (PDF removed) -->
+<!-- Export Buttons -->
 <div class="export-bar">
     <button onclick="copyToClipboard()" class="btn btn-info"><i class="fas fa-clipboard"></i> Copy to Clipboard</button>
     <button onclick="window.print()" class="btn btn-success"><i class="fas fa-print"></i> Print</button>

@@ -49,18 +49,21 @@ function handle_image_upload($file_field, $existing_filename = null) {
 if ($action === 'add') {
     $image_name = handle_image_upload('image', null);
     
+    // Get date_lost from form (if provided, otherwise NULL)
+    $date_lost = !empty($_POST['date_lost']) ? $_POST['date_lost'] : null;
+    
     try {
-        // Table: lost_items | Columns: item_type, description, status, user_id, image
-        $sql = "INSERT INTO lost_items (item_type, description, status, user_id, image, created_at) 
-                VALUES (:type, :desc, :status, :user, :img, NOW())";
+        $sql = "INSERT INTO lost_items (item_type, description, status, user_id, image, created_at, date_lost) 
+                VALUES (:type, :desc, :status, :user, :img, NOW(), :date_lost)";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            'type'   => $_POST['item_type'],
-            'desc'   => $_POST['description'],
-            'status' => $_POST['status'],
-            'user'   => $_SESSION['user_id'],
-            'img'    => $image_name
+            'type'      => $_POST['item_type'],
+            'desc'      => $_POST['description'],
+            'status'    => $_POST['status'],
+            'user'      => $_SESSION['user_id'],
+            'img'       => $image_name,
+            'date_lost' => $date_lost
         ]);
 
         header("Location: manage_items.php?msg=Item added successfully");
